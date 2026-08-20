@@ -1,0 +1,49 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: duam_api
+      MYSQL_USER: duam_api
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?informe MYSQL_PASSWORD no .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?informe MYSQL_ROOT_PASSWORD no .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 1.5g
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DuamMySql: "Server=mysql;Port=3306;Database=duam_api;User=duam_api;Password=${MYSQL_PASSWORD};"
+      Armazenamento__DiretorioPlanilhas: /data/planilhas
+      FilaDuam__WorkerCount: ${WORKER_COUNT:-2}
+      Cors__AllowedOrigins__0: ${FRONTEND_ORIGIN:-}
+    # Só acessível localmente no servidor (127.0.0.1) — o tráfego externo entra
+    # via Nginx (ver guia de deploy), não direto na porta do container.
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - planilhas_data:/data/planilhas
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
+volumes:
+  mysql_data:
+  planilhas_data:

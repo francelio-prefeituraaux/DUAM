@@ -1,0 +1,35 @@
+@Automacao.DuamApi_HostAddress = http://localhost:5043
+
+### Enfileira o processamento de uma planilha (assíncrono)
+# Retorna 202 Accepted com o jobId — o processamento roda em background (Hangfire).
+POST {{Automacao.DuamApi_HostAddress}}/duam/processar
+Content-Type: multipart/form-data; boundary=----DuamBoundary
+
+------DuamBoundary
+Content-Disposition: form-data; name="Usuario"
+
+meu.usuario
+------DuamBoundary
+Content-Disposition: form-data; name="Senha"
+
+minha.senha
+------DuamBoundary
+Content-Disposition: form-data; name="Planilha"; filename="planilha.xlsx"
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+
+< ./planilha.xlsx
+------DuamBoundary--
+
+###
+
+### Consulta o status/progresso/resultado de um job
+GET {{Automacao.DuamApi_HostAddress}}/duam/jobs/00000000-0000-0000-0000-000000000000
+Accept: application/json
+
+###
+
+### Lista o histórico de jobs (paginado, filtros opcionais)
+GET {{Automacao.DuamApi_HostAddress}}/duam/jobs?pagina=1&tamanhoPagina=20
+Accept: application/json
+
+###

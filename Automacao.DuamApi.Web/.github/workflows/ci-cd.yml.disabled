@@ -1,0 +1,87 @@
+# DESATIVADO: o servidor de produção só é acessível via VPN, sem IP público —
+# um runner hospedado pela GitHub (ubuntu-latest) não alcança essa rede.
+# Deploy atual é manual, ver README.md na raiz do repositório.
+# Renomeie de volta para "ci-cd.yml" se um runner self-hosted dentro da VPN
+# for configurado no futuro.
+name: CI/CD
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    name: Build frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Build (typecheck + vite build)
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+
+      - name: Publicar artefato do build
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  docker-build-check:
+    name: Validar build da imagem Docker (uso local/dev)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build da imagem (só para validar o Dockerfile, sem publicar)
+        run: docker build -t duamapi-web-ci-check .
+
+  deploy:
+    name: Deploy no servidor (arquivos estáticos via Nginx)
+    runs-on: ubuntu-latest
+    needs: [build, docker-build-check]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    environment: production
+    steps:
+      - name: Baixar artefato do build
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Limpar diretório de destino no servidor
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            sudo mkdir -p /var/www/duamapi-web
+            sudo rm -rf /var/www/duamapi-web/*
+            sudo chown $USER:$USER /var/www/duamapi-web
+
+      - name: Copiar arquivos estáticos para o servidor
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "dist/*"
+          target: "/var/www/duamapi-web"
+          strip_components: 1
+          overwrite: true
