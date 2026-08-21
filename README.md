@@ -59,18 +59,37 @@ sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
-## 2. Trazer o código da API pro servidor
+## 2. Trazer o código pro servidor
+
+O repositório é único (monorepo) — `francelio-prefeituraaux/DUAM` no GitHub, com a API e o frontend juntos. O servidor precisa da própria credencial pra clonar (deploy key, só leitura, separada da sua chave pessoal):
+
+```bash
+ssh-keygen -t ed25519 -C "deploy-key-duamapi-servidor" -f ~/.ssh/duamapi_deploy_key -N ""
+cat ~/.ssh/duamapi_deploy_key.pub
+```
+
+Cadastre essa chave pública no repositório: **Settings → Deploy keys → Add deploy key** (deixe "Allow write access" desmarcado — só leitura já basta pra clonar/atualizar).
+
+```bash
+cat >> ~/.ssh/config <<'EOF'
+
+Host github.com-duamapi
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/duamapi_deploy_key
+    IdentitiesOnly yes
+EOF
+```
 
 ```bash
 sudo mkdir -p /opt/duamapi
 sudo chown deploy:deploy /opt/duamapi
 su - deploy
-cd /opt/duamapi
-git clone <URL_DO_REPOSITORIO_AUTOMACAO_DUAMAPI> .
-cd Automacao.DuamApi
+git clone git@github.com-duamapi:francelio-prefeituraaux/DUAM.git /opt/duamapi
+cd /opt/duamapi/Automacao.DuamApi/Automacao.DuamApi
 ```
 
-(Não precisa migrar pro GitHub pra isso funcionar — clonar direto do Azure DevOps também serve, já que quem puxa o código agora é você, via VPN, não um runner externo.)
+> A partir daqui, todo comando `docker compose`/`git pull` deste guia roda de dentro de `/opt/duamapi/Automacao.DuamApi/Automacao.DuamApi` (onde está o `docker-compose.yml` de produção), a menos que indicado o contrário.
 
 ## 3. Configurar o `.env` da API
 
@@ -109,21 +128,38 @@ docker compose logs --tail=100 api
 
 ## 5. Build e deploy do frontend
 
-O frontend é estático — não roda em container em produção, o Nginx do host serve os arquivos direto.
+O frontend é estático em produção (o Nginx do host só serve os arquivos), mas o **build roda no próprio servidor**, a partir do código já clonado — por isso precisa de Node.js instalado lá (único requisito extra além do Docker).
 
-**Na sua máquina** (não no servidor — evita precisar instalar Node lá):
-
-```bash
-cd Automacao.DuamApi.Web
-VITE_API_BASE_URL=https://<domínio-ou-ip>/api npm run build
-```
-
-Copiar o resultado pro servidor (ainda com a VPN conectada):
+Instalar Node (uma vez só, se ainda não tiver):
 
 ```bash
-ssh deploy@<host-do-servidor> "sudo mkdir -p /var/www/duamapi-web && sudo chown deploy:deploy /var/www/duamapi-web"
-rsync -avz --delete dist/ deploy@<host-do-servidor>:/var/www/duamapi-web/
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+node -v && npm -v
 ```
+
+Preparar a pasta que o Nginx vai servir (uma vez só):
+
+```bash
+sudo mkdir -p /var/www/duamapi-web
+sudo chown deploy:deploy /var/www/duamapi-web
+```
+
+Configurar o script (uma vez só):
+
+```bash
+cd /opt/duamapi/Automacao.DuamApi.Web
+cp deploy.env.example deploy.env.local
+nano deploy.env.local   # preenche VITE_API_BASE_URL e TARGET_DIR
+```
+
+Buildar e copiar (script [deploy.sh](Automacao.DuamApi.Web/deploy.sh)):
+
+```bash
+./deploy.sh
+```
+
+Rode esse mesmo comando de novo sempre que quiser reenviar o frontend (roda `npm ci`, `npm run build` e copia `dist/` pra `TARGET_DIR`).
 
 ## 6. Nginx (proxy pra API + estáticos do frontend)
 
@@ -177,7 +213,7 @@ crontab -e
 ```
 
 ```cron
-0 3 * * * cd /opt/duamapi/Automacao.DuamApi && docker compose exec -T mysql sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" duam_api' | gzip > /opt/duamapi/backups/duam_api_$(date +\%Y\%m\%d).sql.gz && find /opt/duamapi/backups -name '*.sql.gz' -mtime +14 -delete
+0 3 * * * cd /opt/duamapi/Automacao.DuamApi/Automacao.DuamApi && docker compose exec -T mysql sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" duam_api' | gzip > /opt/duamapi/backups/duam_api_$(date +\%Y\%m\%d).sql.gz && find /opt/duamapi/backups -name '*.sql.gz' -mtime +14 -delete
 ```
 
 ## 9. Acessar o dashboard do Hangfire
@@ -196,13 +232,14 @@ E abra `http://127.0.0.1:8080/hangfire` no seu navegador local.
 
 ```bash
 ssh deploy@<host-do-servidor>
-cd /opt/duamapi/Automacao.DuamApi
+cd /opt/duamapi
 
 # Backup antes de aplicar qualquer migration nova
 mkdir -p /opt/duamapi/backups
-docker compose exec -T mysql sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" duam_api' | gzip > /opt/duamapi/backups/pre-deploy_$(date +%Y%m%d%H%M%S).sql.gz
+(cd Automacao.DuamApi/Automacao.DuamApi && docker compose exec -T mysql sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" duam_api') | gzip > /opt/duamapi/backups/pre-deploy_$(date +%Y%m%d%H%M%S).sql.gz
 
-git pull origin master
+git pull origin master   # puxa API + frontend juntos, é um repo só
+cd Automacao.DuamApi/Automacao.DuamApi
 docker compose up -d --build
 
 # Confirma que subiu antes de considerar concluído
@@ -215,12 +252,11 @@ Se o `curl` não responder `200`: **não** apague o backup que acabou de gerar �
 
 ### Frontend
 
-Igual ao passo 5, direto da sua máquina:
+Mesma sessão SSH, já com o `git pull` feito acima (é o mesmo repositório, não precisa puxar de novo):
 
 ```bash
-cd Automacao.DuamApi.Web
-VITE_API_BASE_URL=https://<domínio-ou-ip>/api npm run build
-rsync -avz --delete dist/ deploy@<host-do-servidor>:/var/www/duamapi-web/
+cd /opt/duamapi/Automacao.DuamApi.Web
+./deploy.sh
 ```
 
 ## Checklist de segurança
