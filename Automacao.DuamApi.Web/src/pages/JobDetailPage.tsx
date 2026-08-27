@@ -29,11 +29,11 @@ export function JobDetailPage() {
 
   return (
     <div>
-      <Link to="/jobs" className="back-link">
+      <Link to="/acompanhamento" className="back-link">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="m15 18-6-6 6-6" />
         </svg>
-        <span>Voltar para Jobs</span>
+        <span>Voltar para Acompanhamento</span>
       </Link>
 
       <div className="card" style={{ marginBottom: 20 }}>

@@ -1,12 +1,76 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import type { DriveStep } from "driver.js";
 import { useUploadDuam } from "../hooks/useUploadDuam";
 import { ApiError } from "../api/duamApi";
 import { getCachedUsuario } from "../lib/authStorage";
+import { useAutoTour } from "../hooks/useAutoTour";
+import { TOUR_KEYS } from "../lib/tourStorage";
+
+const TOUR_STEPS: DriveStep[] = [
+  {
+    element: '[data-tour="sidebar-brand"]',
+    popover: {
+      title: "Bem-vindo ao DUAM Monitor",
+      description: "Aqui você envia planilhas de DUAM pra processamento e acompanha o andamento. Vamos dar uma volta rápida pelas telas.",
+    },
+  },
+  {
+    element: '[data-tour="nav-upload"]',
+    popover: {
+      title: "Enviar Planilha",
+      description: "Você está aqui — é a tela principal, onde envia uma nova planilha .xlsx pra processar.",
+    },
+  },
+  {
+    element: '[data-tour="nav-jobs"]',
+    popover: {
+      title: "Acompanhamento",
+      description: "Aqui fica o histórico de tudo que já foi enviado, com status e resultado de cada linha.",
+    },
+  },
+  {
+    element: '[data-tour="topbar"]',
+    popover: {
+      title: "Quem está logado",
+      description: "Mostra seu usuário e a empresa vinculada ao login no portal DUAM.",
+    },
+  },
+  {
+    element: '[data-tour="campo-usuario"]',
+    popover: {
+      title: "Usuário do portal DUAM",
+      description: "Já vem preenchido automaticamente com o usuário do seu último login.",
+    },
+  },
+  {
+    element: '[data-tour="campo-senha"]',
+    popover: {
+      title: "Senha",
+      description: "Usada só uma vez, no momento do envio — nunca é salva no navegador.",
+    },
+  },
+  {
+    element: '[data-tour="campo-planilha"]',
+    popover: {
+      title: "Planilha (.xlsx)",
+      description: "Arraste o arquivo ou clique pra selecionar. Só arquivos .xlsx são aceitos.",
+    },
+  },
+  {
+    element: '[data-tour="botao-enviar"]',
+    popover: {
+      title: "Enviar",
+      description: "Depois de enviar, você é levado direto pra tela de acompanhamento desse job.",
+    },
+  },
+];
 
 export function UploadPage() {
   const navigate = useNavigate();
   const upload = useUploadDuam();
+
+  useAutoTour(TOUR_KEYS.upload, TOUR_STEPS);
 
   const [usuario, setUsuario] = useState(() => getCachedUsuario() ?? "");
   const [senha, setSenha] = useState("");
@@ -36,7 +100,7 @@ export function UploadPage() {
       {
         onSuccess: (response) => {
           setSenha("");
-          navigate(`/jobs/${response.jobId}`);
+          navigate(`/acompanhamento/${response.jobId}`);
         },
       },
     );
@@ -58,7 +122,7 @@ export function UploadPage() {
       </p>
 
       <form onSubmit={handleSubmit} className="card" style={{ maxWidth: 520, display: "flex", flexDirection: "column", gap: 18 }}>
-        <div className="field">
+        <div className="field" data-tour="campo-usuario">
           <label htmlFor="usuario">Usuário do portal DUAM</label>
           <input
             id="usuario"
@@ -70,7 +134,7 @@ export function UploadPage() {
           />
         </div>
 
-        <div className="field">
+        <div className="field" data-tour="campo-senha">
           <label htmlFor="senha">Senha</label>
           <input
             id="senha"
@@ -83,7 +147,7 @@ export function UploadPage() {
           <span className="field-hint">Usada uma única vez no envio; não é armazenada.</span>
         </div>
 
-        <div className="field">
+        <div className="field" data-tour="campo-planilha">
           <label htmlFor="planilha">Planilha (.xlsx)</label>
           <div className="file-drop">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -109,7 +173,7 @@ export function UploadPage() {
 
         {errorMessage && <span className="field-error">{errorMessage}</span>}
 
-        <button type="submit" disabled={upload.isPending} className="btn-primary" style={{ marginTop: 6 }}>
+        <button type="submit" disabled={upload.isPending} className="btn-primary" data-tour="botao-enviar" style={{ marginTop: 6 }}>
           {upload.isPending ? "Enviando..." : "Enviar planilha"}
         </button>
       </form>

@@ -1,11 +1,45 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import type { DriveStep } from "driver.js";
 import { useJobList } from "../hooks/useJobList";
 import { StatusBadge } from "../components/StatusBadge";
 import { ProgressBar } from "../components/ProgressBar";
+import { useAutoTour } from "../hooks/useAutoTour";
+import { TOUR_KEYS } from "../lib/tourStorage";
 import type { JobStatus } from "../types/job";
 
 const STATUS_OPTIONS: JobStatus[] = ["Pendente", "EmProcessamento", "Concluido", "Falhou"];
+
+const TOUR_STEPS: DriveStep[] = [
+  {
+    element: '[data-tour="jobs-filtros"]',
+    popover: {
+      title: "Filtros",
+      description: "Filtre por usuário, status do processamento, ou quantos registros mostrar por página.",
+    },
+  },
+  {
+    element: '[data-tour="jobs-tabela"]',
+    popover: {
+      title: "Histórico de envios",
+      description: "Cada linha é uma planilha enviada, com status e progresso. Clique no ícone de olho pra ver o resultado linha a linha.",
+    },
+  },
+  {
+    element: '[data-tour="jobs-paginacao"]',
+    popover: {
+      title: "Paginação",
+      description: "Navegue entre as páginas do histórico completo.",
+    },
+  },
+  {
+    element: '[data-tour="jobs-novo-envio"]',
+    popover: {
+      title: "Novo envio",
+      description: "Volta pra tela de Enviar Planilha a qualquer momento.",
+    },
+  },
+];
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
@@ -31,21 +65,23 @@ export function JobListPage() {
   const start = total === 0 ? 0 : (pagina - 1) * tamanhoPagina + 1;
   const end = Math.min(pagina * tamanhoPagina, total);
 
+  useAutoTour(TOUR_KEYS.jobs, TOUR_STEPS, !!data);
+
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <h1 className="page-title text-gradient">Jobs</h1>
+          <h1 className="page-title text-gradient">Acompanhamento</h1>
           <p style={{ color: "hsl(var(--muted-foreground))", fontSize: 14, margin: 0 }}>
             Acompanhe o processamento das planilhas enviadas.
           </p>
         </div>
-        <Link to="/" className="btn-primary" style={{ textDecoration: "none" }}>
+        <Link to="/" className="btn-primary" data-tour="jobs-novo-envio" style={{ textDecoration: "none" }}>
           + Novo Envio
         </Link>
       </div>
 
-      <div className="toolbar">
+      <div className="toolbar" data-tour="jobs-filtros">
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div className="entries-control">
             <span>Mostrar</span>
@@ -101,7 +137,7 @@ export function JobListPage() {
       {error && <p style={{ color: "#d93025" }}>Falha ao carregar jobs.</p>}
 
       {data && (
-        <div className="jobs-table">
+        <div className="jobs-table" data-tour="jobs-tabela">
           <div className="jobs-table-inner">
             <div className="jobs-row-head">
               <span>Arquivo</span>
@@ -131,7 +167,7 @@ export function JobListPage() {
                 />
                 <span className="jobs-muted-cell" style={{ fontSize: 12 }}>{formatDate(job.dataCriacao)}</span>
                 <span className="jobs-muted-cell" style={{ fontSize: 12 }}>{formatDate(job.dataFim)}</span>
-                <Link to={`/jobs/${job.jobId}`} className="btn-outline" style={{ width: "fit-content" }}>
+                <Link to={`/acompanhamento/${job.jobId}`} className="btn-outline" style={{ width: "fit-content" }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                     <circle cx="12" cy="12" r="3" />
@@ -143,7 +179,7 @@ export function JobListPage() {
             {data.jobs.length === 0 && <div className="empty-state">Nenhum job encontrado.</div>}
           </div>
 
-          <div className="pagination-footer">
+          <div className="pagination-footer" data-tour="jobs-paginacao">
             <span style={{ fontSize: 13, color: "hsl(var(--muted-foreground))" }}>
               Mostrando {start} a {end} de {total}
             </span>

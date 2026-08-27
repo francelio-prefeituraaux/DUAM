@@ -31,8 +31,8 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<AuthenticatedLayout />}>
         <Route path="/" element={<UploadPage />} />
-        <Route path="/jobs" element={<JobListPage />} />
-        <Route path="/jobs/:jobId" element={<JobDetailPage />} />
+        <Route path="/acompanhamento" element={<JobListPage />} />
+        <Route path="/acompanhamento/:jobId" element={<JobDetailPage />} />
       </Route>
     </Routes>
   );
