@@ -13,6 +13,7 @@ public class DuamAutomationService
         string usuario,
         string senha,
         string planilhaPath,
+        TipoInscricao tipoInscricao,
         ISet<int>? linhasJaProcessadas = null,
         Func<ResultadoLinha, Task>? onLinhaProcessada = null)
     {
@@ -90,7 +91,8 @@ public class DuamAutomationService
                     receita,
                     observacao,
                     inscricao,
-                    valor);
+                    valor,
+                    tipoInscricao);
 
                 resultado.Sucesso = true;
                 resultado.Mensagem = "Processado com sucesso";
@@ -153,7 +155,8 @@ public class DuamAutomationService
       string receita,
       string observacao,
       string inscricao,
-      string valor)
+      string valor,
+      TipoInscricao tipoInscricao)
     {
         driver.Navigate().GoToUrl(
             "https://araguaina.prodataweb.inf.br/sig/app.html#/arrecadacao/duam");
@@ -238,40 +241,80 @@ public class DuamAutomationService
 
         await Task.Delay(2000);
 
-        // =========================
-        // ABA CADASTRO ECONÔMICO
-        // =========================
+        if (tipoInscricao == TipoInscricao.Economica)
+        {
+            // =========================
+            // ABA CADASTRO ECONÔMICO
+            // =========================
 
-        var abaEconomico = wait.Until(
-            d => d.FindElement(By.XPath(
-                "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/pd-tab/div/div/ul/li[3]/a")));
+            var abaEconomico = wait.Until(
+                d => d.FindElement(By.XPath(
+                    "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/pd-tab/div/div/ul/li[3]/a")));
 
-        abaEconomico.Click();
+            abaEconomico.Click();
 
-        await Task.Delay(3000);
+            await Task.Delay(3000);
 
-        // =========================
-        // INSCRIÇÃO
-        // =========================
+            // =========================
+            // INSCRIÇÃO
+            // =========================
 
-        var campoInscricao = wait.Until(
-            d => d.FindElement(By.XPath(
-                "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/pd-tab/div/div/div/div[3]/div/div/pd-autocomplete/div/div/div/div[1]/pd-input-text/input")));
+            var campoInscricao = wait.Until(
+                d => d.FindElement(By.XPath(
+                    "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/pd-tab/div/div/div/div[3]/div/div/pd-autocomplete/div/div/div/div[1]/pd-input-text/input")));
 
-        campoInscricao.Clear();
+            campoInscricao.Clear();
 
-        campoInscricao.SendKeys(inscricao);
+            campoInscricao.SendKeys(inscricao);
 
-        await Task.Delay(2000);
+            await Task.Delay(2000);
 
-        campoInscricao.SendKeys(Keys.Enter);
+            campoInscricao.SendKeys(Keys.Enter);
 
-        await Task.Delay(3000);
+            await Task.Delay(3000);
 
-        // TAB para fechar autocomplete
-        campoInscricao.SendKeys(Keys.Tab);
+            // TAB para fechar autocomplete
+            campoInscricao.SendKeys(Keys.Tab);
 
-        await Task.Delay(2000);
+            await Task.Delay(2000);
+        }
+        else
+        {
+            // =========================
+            // ABA CADASTRO IMOBILIÁRIO
+            // =========================
+
+            var abaImobiliario = wait.Until(
+                d => d.FindElement(By.XPath(
+                    "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/pd-tab/div/div/ul/li[2]/a")));
+
+            abaImobiliario.Click();
+
+            await Task.Delay(3000);
+
+            // =========================
+            // INSCRIÇÃO IMOBILIÁRIA
+            // =========================
+
+            var campoInscricaoImobiliaria = wait.Until(
+                d => d.FindElement(By.XPath(
+                    "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/pd-tab/div/div/div/div[2]/div/div[1]/pd-autocomplete/div/div/div/div/pd-input-text/input")));
+
+            campoInscricaoImobiliaria.Clear();
+
+            campoInscricaoImobiliaria.SendKeys(inscricao);
+
+            await Task.Delay(2000);
+
+            campoInscricaoImobiliaria.SendKeys(Keys.Enter);
+
+            await Task.Delay(3000);
+
+            // TAB para fechar autocomplete
+            campoInscricaoImobiliaria.SendKeys(Keys.Tab);
+
+            await Task.Delay(2000);
+        }
 
         // =========================
         // SALVAR DUAM

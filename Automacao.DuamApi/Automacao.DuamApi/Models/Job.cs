@@ -8,11 +8,19 @@ public enum JobStatus
     Falhou
 }
 
+public enum TipoInscricao
+{
+    Imobiliaria,
+    Economica
+}
+
 public class Job
 {
     public Guid Id { get; set; }
 
     public string Usuario { get; set; } = string.Empty;
+
+    public TipoInscricao TipoInscricao { get; set; }
 
     public string NomeArquivoOriginal { get; set; } = string.Empty;
 

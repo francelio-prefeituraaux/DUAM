@@ -80,6 +80,7 @@ public class DuamJobProcessor : IDuamJobProcessor
                 job.Usuario,
                 senha,
                 job.CaminhoArquivo,
+                job.TipoInscricao,
                 linhasJaProcessadas.ToHashSet(),
                 async resultado =>
                 {

@@ -127,6 +127,9 @@ app.MapPost("/duam/processar", async (
     if (request.Planilha == null || request.Planilha.Length == 0)
         return Results.BadRequest("Planilha obrigatória.");
 
+    if (!Enum.TryParse<TipoInscricao>(request.TipoInscricao, true, out var tipoInscricaoEnum))
+        return Results.BadRequest("Tipo de inscrição inválido.");
+
     var extensao = Path.GetExtension(request.Planilha.FileName);
 
     if (extensao.ToLower() != ".xlsx")
@@ -151,6 +154,7 @@ app.MapPost("/duam/processar", async (
     {
         Id = jobId,
         Usuario = request.Usuario,
+        TipoInscricao = tipoInscricaoEnum,
         NomeArquivoOriginal = request.Planilha.FileName,
         CaminhoArquivo = caminhoArquivo,
         Status = JobStatus.Pendente,

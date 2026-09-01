@@ -75,6 +75,7 @@ export function UploadPage() {
   const [usuario, setUsuario] = useState(() => getCachedUsuario() ?? "");
   const [senha, setSenha] = useState("");
   const [planilha, setPlanilha] = useState<File | null>(null);
+  const [tipoInscricao, setTipoInscricao] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
 
   function validate(): string | null {
@@ -82,6 +83,7 @@ export function UploadPage() {
     if (!senha.trim()) return "Senha é obrigatória.";
     if (!planilha) return "Selecione uma planilha .xlsx.";
     if (!planilha.name.toLowerCase().endsWith(".xlsx")) return "Apenas arquivos .xlsx são aceitos.";
+    if (!tipoInscricao) return "Selecione o tipo de inscrição.";
     return null;
   }
 
@@ -96,7 +98,7 @@ export function UploadPage() {
     }
 
     upload.mutate(
-      { usuario, senha, planilha: planilha! },
+      { usuario, senha, planilha: planilha!, tipoInscricao },
       {
         onSuccess: (response) => {
           setSenha("");
@@ -168,6 +170,32 @@ export function UploadPage() {
               onChange={(e) => setPlanilha(e.target.files?.[0] ?? null)}
               style={{ fontSize: 12 }}
             />
+          </div>
+        </div>
+
+        <div className="field">
+          <label>Tipo de inscrição</label>
+          <div className="field-radio-group">
+            <label className="field-radio-option">
+              <input
+                type="radio"
+                name="tipoInscricao"
+                value="Imobiliaria"
+                checked={tipoInscricao === "Imobiliaria"}
+                onChange={(e) => setTipoInscricao(e.target.value)}
+              />
+              Inscrição Imobiliária
+            </label>
+            <label className="field-radio-option">
+              <input
+                type="radio"
+                name="tipoInscricao"
+                value="Economica"
+                checked={tipoInscricao === "Economica"}
+                onChange={(e) => setTipoInscricao(e.target.value)}
+              />
+              Inscrição Econômica
+            </label>
           </div>
         </div>
 

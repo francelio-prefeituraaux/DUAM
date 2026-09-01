@@ -49,6 +49,7 @@ export interface PostProcessarInput {
   usuario: string;
   senha: string;
   planilha: File;
+  tipoInscricao: string;
 }
 
 export async function postProcessar(
@@ -58,6 +59,7 @@ export async function postProcessar(
   formData.append("Usuario", input.usuario);
   formData.append("Senha", input.senha);
   formData.append("Planilha", input.planilha);
+  formData.append("TipoInscricao", input.tipoInscricao);
 
   const response = await fetch(`${API_BASE_URL}/duam/processar`, {
     method: "POST",
