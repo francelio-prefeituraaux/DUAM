@@ -30,6 +30,12 @@ public class DuamDbContext : DbContext
                 .HasMaxLength(100)
                 .IsRequired();
 
+            entity.Property(j => j.TipoInscricao)
+                .HasColumnName("tipo_inscricao")
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .IsRequired();
+
             entity.Property(j => j.NomeArquivoOriginal)
                 .HasColumnName("nome_arquivo_original")
                 .HasMaxLength(255)

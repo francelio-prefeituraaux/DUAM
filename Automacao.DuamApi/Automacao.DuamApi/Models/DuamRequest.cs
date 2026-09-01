@@ -8,5 +8,7 @@ public class DuamRequest
 
     public string Senha { get; set; } = string.Empty;
 
+    public string TipoInscricao { get; set; } = string.Empty;
+
     public IFormFile Planilha { get; set; } = default!;
 }
