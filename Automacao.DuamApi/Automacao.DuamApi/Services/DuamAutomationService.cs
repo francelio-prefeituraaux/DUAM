@@ -4,11 +4,14 @@ using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.Extensions;
 using OpenQA.Selenium.Support.UI;
+using System.Text.RegularExpressions;
 
 namespace DuamApi.Services;
 
 public class DuamAutomationService
 {
+    private IWebDriver? _debugDriver;
+
     public async Task<List<ResultadoLinha>> ProcessarAsync(
         string usuario,
         string senha,
@@ -40,7 +43,9 @@ public class DuamAutomationService
             service,
             options);
 
-        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+        _debugDriver = driver;
+
+        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(25));
 
         await Login(driver, wait, usuario, senha);
 
@@ -116,6 +121,45 @@ public class DuamAutomationService
         return resultados;
     }
 
+    private string? CapturarScreenshot(string contexto)
+    {
+        try
+        {
+            if (_debugDriver == null) return null;
+
+            var dir = Path.Combine(AppContext.BaseDirectory, "debug-screenshots");
+            Directory.CreateDirectory(dir);
+
+            var nomeArquivo = $"{DateTime.UtcNow:yyyyMMdd-HHmmss}_{Regex.Replace(contexto, "[^a-zA-Z0-9]+", "-")}.png";
+            var caminho = Path.Combine(dir, nomeArquivo);
+
+            ((ITakesScreenshot)_debugDriver).GetScreenshot().SaveAsFile(caminho);
+
+            return caminho;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private IWebElement WaitForElement(WebDriverWait wait, string xpath, string descricao)
+    {
+        try
+        {
+            return wait.Until(d => d.FindElement(By.XPath(xpath)));
+        }
+        catch (WebDriverTimeoutException ex)
+        {
+            var screenshot = CapturarScreenshot(descricao);
+            var sufixo = screenshot != null ? $" Screenshot: {screenshot}" : "";
+
+            throw new TimeoutException(
+                $"Timeout aguardando '{descricao}' (elemento não apareceu em {wait.Timeout.TotalSeconds:0}s).{sufixo}",
+                ex);
+        }
+    }
+
     private async Task Login(
         IWebDriver driver,
         WebDriverWait wait,
@@ -125,25 +169,34 @@ public class DuamAutomationService
         driver.Navigate().GoToUrl(
             "https://araguaina.prodataweb.inf.br/sig/index.html");
 
-        var usuarioInput = wait.Until(
-            d => d.FindElement(
-                By.XPath("//input[@placeholder='Usuário']")));
+        var usuarioInput = WaitForElement(wait, "//input[@placeholder='Usuário']", "Campo Usuário (login)");
 
         usuarioInput.SendKeys(usuario);
 
-        var senhaInput = wait.Until(
-            d => d.FindElement(
-                By.XPath("//input[@placeholder='Senha']")));
+        var senhaInput = WaitForElement(wait, "//input[@placeholder='Senha']", "Campo Senha (login)");
 
         senhaInput.SendKeys(senha);
 
-        var entrarButton = wait.Until(
-            d => d.FindElement(
-                By.XPath("//button[contains(text(), 'Entrar')]")));
+        var entrarButton = WaitForElement(wait, "//button[contains(text(), 'Entrar')]", "Botão Entrar (login)");
 
         entrarButton.Click();
 
         await Task.Delay(5000);
+
+        try
+        {
+            wait.Until(d => !d.Url.Contains("/sig/index.html"));
+        }
+        catch (WebDriverTimeoutException ex)
+        {
+            var screenshot = CapturarScreenshot("falha-login");
+            var sufixo = screenshot != null ? $" Screenshot: {screenshot}" : "";
+
+            throw new TimeoutException(
+                "Falha no login: a página continuou na tela de login após clicar em 'Entrar' " +
+                $"(usuário/senha inválidos, captcha, ou portal indisponível).{sufixo}",
+                ex);
+        }
     }
 
     private async Task LancarDuam(
@@ -167,9 +220,9 @@ public class DuamAutomationService
         // DATA DE VENCIMENTO
         // =========================
 
-        var campoData = wait.Until(
-            d => d.FindElement(By.XPath(
-                "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/div[1]/div[1]/div/p/input")));
+        var campoData = WaitForElement(wait,
+            "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/div[1]/div[1]/div/p/input",
+            "Campo Data de Vencimento");
 
         campoData.Clear();
 
@@ -181,9 +234,9 @@ public class DuamAutomationService
         // ANO
         // =========================
 
-        var campoAno = wait.Until(
-            d => d.FindElement(By.XPath(
-                "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/div[1]/div[2]/div/p/input")));
+        var campoAno = WaitForElement(wait,
+            "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/div[1]/div[2]/div/p/input",
+            "Campo Ano");
 
         campoAno.Clear();
 
@@ -195,9 +248,9 @@ public class DuamAutomationService
         // MÊS
         // =========================
 
-        var campoMes = wait.Until(
-            d => d.FindElement(By.XPath(
-                "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/div[1]/div[3]/div/p/input")));
+        var campoMes = WaitForElement(wait,
+            "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/div[1]/div[3]/div/p/input",
+            "Campo Mês");
 
         campoMes.Clear();
 
@@ -209,9 +262,9 @@ public class DuamAutomationService
         // RECEITA
         // =========================
 
-        var campoReceita = wait.Until(
-            d => d.FindElement(By.XPath(
-                "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/div[2]/pd-autocomplete[1]/div/div/div/div[1]/pd-input-text//input")));
+        var campoReceita = WaitForElement(wait,
+            "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/div[2]/pd-autocomplete[1]/div/div/div/div[1]/pd-input-text//input",
+            "Campo Receita");
 
         campoReceita.Clear();
 
@@ -227,9 +280,9 @@ public class DuamAutomationService
         // OBSERVAÇÃO
         // =========================
 
-        var campoObservacao = wait.Until(
-            d => d.FindElement(By.XPath(
-                "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/div[3]/pd-input-area/div/div/textarea")));
+        var campoObservacao = WaitForElement(wait,
+            "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/div[3]/pd-input-area/div/div/textarea",
+            "Campo Observação");
 
         campoObservacao.Clear();
 
@@ -247,9 +300,9 @@ public class DuamAutomationService
             // ABA CADASTRO ECONÔMICO
             // =========================
 
-            var abaEconomico = wait.Until(
-                d => d.FindElement(By.XPath(
-                    "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/pd-tab/div/div/ul/li[3]/a")));
+            var abaEconomico = WaitForElement(wait,
+                "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/pd-tab/div/div/ul/li[3]/a",
+                "Aba Cadastro Econômico");
 
             abaEconomico.Click();
 
@@ -259,9 +312,9 @@ public class DuamAutomationService
             // INSCRIÇÃO
             // =========================
 
-            var campoInscricao = wait.Until(
-                d => d.FindElement(By.XPath(
-                    "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/pd-tab/div/div/div/div[3]/div/div/pd-autocomplete/div/div/div/div[1]/pd-input-text/input")));
+            var campoInscricao = WaitForElement(wait,
+                "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/pd-tab/div/div/div/div[3]/div/div/pd-autocomplete/div/div/div/div[1]/pd-input-text/input",
+                "Campo Inscrição (Cadastro Econômico)");
 
             campoInscricao.Clear();
 
@@ -284,9 +337,9 @@ public class DuamAutomationService
             // ABA CADASTRO IMOBILIÁRIO
             // =========================
 
-            var abaImobiliario = wait.Until(
-                d => d.FindElement(By.XPath(
-                    "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/pd-tab/div/div/ul/li[2]/a")));
+            var abaImobiliario = WaitForElement(wait,
+                "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/pd-tab/div/div/ul/li[2]/a",
+                "Aba Cadastro Imobiliário");
 
             abaImobiliario.Click();
 
@@ -296,9 +349,9 @@ public class DuamAutomationService
             // INSCRIÇÃO IMOBILIÁRIA
             // =========================
 
-            var campoInscricaoImobiliaria = wait.Until(
-                d => d.FindElement(By.XPath(
-                    "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/pd-tab/div/div/div/div[2]/div/div[1]/pd-autocomplete/div/div/div/div/pd-input-text/input")));
+            var campoInscricaoImobiliaria = WaitForElement(wait,
+                "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/pd-tab/div/div/div/div[2]/div/div[1]/pd-autocomplete/div/div/div/div/pd-input-text/input",
+                "Campo Inscrição (Cadastro Imobiliário)");
 
             campoInscricaoImobiliaria.Clear();
 
@@ -320,9 +373,9 @@ public class DuamAutomationService
         // SALVAR DUAM
         // =========================
 
-        var salvarDuamButton = wait.Until(
-            d => d.FindElement(By.XPath(
-                "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[3]/nav/div/div/div[1]/div/button[1]")));
+        var salvarDuamButton = WaitForElement(wait,
+            "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[3]/nav/div/div/div[1]/div/button[1]",
+            "Botão Salvar DUAM");
 
         JsClick(driver, salvarDuamButton);
 
@@ -332,8 +385,7 @@ public class DuamAutomationService
         // AGUARDAR BOTÃO EDITAR
         // =========================
 
-        wait.Until(
-            d => d.FindElement(By.XPath("//button[@nat='botaoEditar']")));
+        WaitForElement(wait, "//button[@nat='botaoEditar']", "Botão Editar (após salvar DUAM)");
 
         // =========================
         // EDITAR VALOR
@@ -380,9 +432,9 @@ public class DuamAutomationService
         // INSERIR Quantidade
         // =========================
 
-        var campoQuantidade = wait.Until(
-          d => d.FindElement(By.XPath(
-            "/html/body/div[1]/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/div[4]/pd-input-text[1]/div/div/input")));
+        var campoQuantidade = WaitForElement(wait,
+            "/html/body/div[1]/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/div[4]/pd-input-text[1]/div/div/input",
+            "Campo Quantidade");
 
         campoQuantidade.Clear();
 
@@ -394,9 +446,9 @@ public class DuamAutomationService
         // INSERIR VALOR
         // =========================
 
-        var campoValor = wait.Until(
-            d => d.FindElement(By.XPath(
-                "/html/body/div[1]/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/div[4]/pd-input-text[2]/div/div/input")));
+        var campoValor = WaitForElement(wait,
+            "/html/body/div[1]/div/div/div/pd-crud/div/div[2]/form/div[1]/pd-crud-body/div[4]/pd-input-text[2]/div/div/input",
+            "Campo Valor");
 
         campoValor.Clear();
 
@@ -412,9 +464,9 @@ public class DuamAutomationService
         // SALVAR E SAIR DO VALOR
         // =========================
 
-        var salvarValorButton = wait.Until(
-            d => d.FindElement(By.XPath(
-                "/html/body/div[1]/div/div/div/pd-crud/div/div[3]/nav/div/div/div[1]/div/button[1]")));
+        var salvarValorButton = WaitForElement(wait,
+            "/html/body/div[1]/div/div/div/pd-crud/div/div[3]/nav/div/div/div[1]/div/button[1]",
+            "Botão Salvar (valor)");
 
         JsClick(driver, salvarValorButton);
 
@@ -424,9 +476,9 @@ public class DuamAutomationService
         // SALVAR DUAM FINAL
         // =========================
 
-        var salvarFinalButton = wait.Until(
-            d => d.FindElement(By.XPath(
-                "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[3]/nav/div/div/div[1]/div/button[1]")));
+        var salvarFinalButton = WaitForElement(wait,
+            "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[3]/nav/div/div/div[1]/div/button[1]",
+            "Botão Salvar DUAM (final)");
 
         JsClick(driver, salvarFinalButton);
 
@@ -436,9 +488,9 @@ public class DuamAutomationService
         // LIMPAR FORMULÁRIO
         // =========================
 
-        var limparFormularioButton = wait.Until(
-            d => d.FindElement(By.XPath(
-                "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[3]/nav/div/div/div[1]/div/button[2]")));
+        var limparFormularioButton = WaitForElement(wait,
+            "/html/body/div[1]/div/md-content/div/ui-view/div/pd-index-modulo/div/div/div/pd-crud/div/div[3]/nav/div/div/div[1]/div/button[2]",
+            "Botão Limpar Formulário");
 
         JsClick(driver, limparFormularioButton);
 

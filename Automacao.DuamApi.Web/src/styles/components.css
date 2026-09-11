@@ -755,7 +755,21 @@
   padding: 12px 20px;
   border-bottom: 1px solid hsl(var(--border));
   font-size: 13px;
+}
+
+.results-row-head {
   align-items: center;
+}
+
+.results-row {
+  align-items: start;
+}
+
+.result-message {
+  color: hsl(var(--muted-foreground));
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.4;
 }
 
 .results-row-head {

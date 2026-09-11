@@ -23,7 +23,7 @@ export function ResultsTable({ resultados }: { resultados: ResultadoLinhaRespons
           <span className={`result-icon ${r.sucesso ? "ok" : "fail"}`}>
             {r.sucesso ? "✓" : "✕"}
           </span>
-          <span className="jobs-muted-cell">{r.mensagem}</span>
+          <span className="result-message">{r.mensagem}</span>
           <span className="jobs-muted-cell" style={{ fontSize: 12 }}>
             {new Date(r.dataProcessamento).toLocaleString("pt-BR")}
           </span>
