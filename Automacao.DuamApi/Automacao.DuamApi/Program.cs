@@ -97,12 +97,21 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
     Authorization = new[] { new DuamHangfireDashboardAuthorizationFilter() }
 });
 
+app.MapGet("/duam/login/captcha", async (SigAuthService sigAuthService) =>
+{
+    var desafio = await sigAuthService.ObterCaptchaAsync();
+
+    return Results.Ok(desafio);
+})
+.WithName("ObterCaptchaLoginDuam");
+
 app.MapPost("/duam/login", async (LoginRequest request, SigAuthService sigAuthService) =>
 {
     if (string.IsNullOrWhiteSpace(request.Usuario) || string.IsNullOrWhiteSpace(request.Senha))
         return Results.BadRequest("Usuário e senha são obrigatórios.");
 
-    var resultado = await sigAuthService.ValidarLoginAsync(request.Usuario, request.Senha);
+    var resultado = await sigAuthService.ValidarLoginAsync(
+        request.Usuario, request.Senha, request.CaptchaToken, request.CaptchaCodigo);
 
     if (!resultado.Sucesso || resultado.Login == null)
         return Results.Unauthorized();

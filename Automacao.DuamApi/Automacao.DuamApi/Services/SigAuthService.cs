@@ -18,11 +18,32 @@ public class SigAuthService
         _httpClient = httpClient;
     }
 
-    public async Task<SigLoginResult> ValidarLoginAsync(string usuario, string senha)
+    public async Task<CaptchaChallengeResponse> ObterCaptchaAsync()
     {
         var client = _httpClient;
 
-        var (sucesso, token, sessionCookie) = await ValidarCredenciaisAsync(client, usuario, senha);
+        var captchaNecessario = await VerificarCaptchaNecessarioAsync(client);
+
+        if (!captchaNecessario)
+            return new CaptchaChallengeResponse(false, null, null);
+
+        var token = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+
+        var imagemBase64 = await ObterImagemCaptchaAsync(client, token);
+
+        return new CaptchaChallengeResponse(true, token, imagemBase64);
+    }
+
+    public async Task<SigLoginResult> ValidarLoginAsync(
+        string usuario,
+        string senha,
+        string? captchaToken = null,
+        string? captchaCodigo = null)
+    {
+        var client = _httpClient;
+
+        var (sucesso, token, sessionCookie) = await ValidarCredenciaisAsync(
+            client, usuario, senha, captchaToken, captchaCodigo);
 
         if (!sucesso || token == null)
             return new SigLoginResult(false, null, null);
@@ -37,14 +58,50 @@ public class SigAuthService
         return new SigLoginResult(true, login, nomeEmpresa);
     }
 
+    private async Task<bool> VerificarCaptchaNecessarioAsync(HttpClient client)
+    {
+        using var request = CriarRequisicao(
+            HttpMethod.Get, "/sig/rest/loginController/isCaptchaLogin", "login", null, null);
+
+        using var response = await client.SendAsync(request);
+
+        if (!response.IsSuccessStatusCode)
+            return false;
+
+        var corpo = await response.Content.ReadAsStringAsync();
+
+        return bool.TryParse(corpo.Trim(), out var necessario) && necessario;
+    }
+
+    private async Task<string?> ObterImagemCaptchaAsync(HttpClient client, string token)
+    {
+        using var request = CriarRequisicao(
+            HttpMethod.Get, $"/sig/rest/loginController/captcha/image?token={token}", "login", null, null);
+
+        using var response = await client.SendAsync(request);
+
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+
+        return Convert.ToBase64String(bytes);
+    }
+
     private async Task<(bool sucesso, string? token, string? sessionCookie)> ValidarCredenciaisAsync(
         HttpClient client,
         string usuario,
-        string senha)
+        string senha,
+        string? captchaToken,
+        string? captchaCodigo)
     {
         using var request = CriarRequisicao(HttpMethod.Post, "/sig/rest/loginController/validarLogin", "login", null, null);
 
-        var corpo = JsonSerializer.Serialize(new { usuario, senha });
+        object corpoObjeto = string.IsNullOrEmpty(captchaToken)
+            ? new { usuario, senha }
+            : new { token = captchaToken, codigo = captchaCodigo, usuario, senha };
+
+        var corpo = JsonSerializer.Serialize(corpoObjeto);
         request.Content = new StringContent(corpo, Encoding.UTF8, "application/json");
 
         using var response = await client.SendAsync(request);

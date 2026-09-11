@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLogin } from "../hooks/useLogin";
+import { useLoginCaptcha } from "../hooks/useLoginCaptcha";
 import { ApiError } from "../api/duamApi";
 
 function MonitorIcon() {
@@ -32,16 +33,26 @@ function Brand({ compact = false }: { compact?: boolean }) {
 export function LoginPage() {
   const navigate = useNavigate();
   const login = useLogin();
+  const captcha = useLoginCaptcha();
 
   const [usuario, setUsuario] = useState("");
   const [senha, setSenha] = useState("");
+  const [codigoCaptcha, setCodigoCaptcha] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  const captchaNecessario = captcha.data?.captchaNecessario ?? false;
 
   function validate(): string | null {
     if (!usuario.trim()) return "Usuário é obrigatório.";
     if (!senha.trim()) return "Senha é obrigatória.";
+    if (captchaNecessario && !codigoCaptcha.trim()) return "Código de verificação é obrigatório.";
     return null;
+  }
+
+  function recarregarCaptcha() {
+    setCodigoCaptcha("");
+    captcha.refetch();
   }
 
   function handleSubmit(event: FormEvent) {
@@ -55,11 +66,19 @@ export function LoginPage() {
     }
 
     login.mutate(
-      { usuario, senha },
+      {
+        usuario,
+        senha,
+        captchaToken: captchaNecessario ? (captcha.data?.token ?? undefined) : undefined,
+        captchaCodigo: captchaNecessario ? codigoCaptcha : undefined,
+      },
       {
         onSuccess: () => {
           setSenha("");
           navigate("/");
+        },
+        onError: () => {
+          if (captchaNecessario) recarregarCaptcha();
         },
       },
     );
@@ -71,7 +90,9 @@ export function LoginPage() {
       ? login.error.message
       : login.error
         ? "Falha ao conectar. Verifique a conexão com o servidor."
-        : null);
+        : captcha.isError
+          ? "Não foi possível carregar o código de verificação. Verifique a conexão com o servidor."
+          : null);
 
   return (
     <div className="login-shell">
@@ -153,13 +174,58 @@ export function LoginPage() {
               </div>
             </div>
 
+            {captchaNecessario && (
+              <div className="field">
+                <label htmlFor="captchaCodigo">Código de verificação</label>
+                <div className="captcha-wrapper">
+                  <div className="captcha-box">
+                    {captcha.data?.imagemBase64 ? (
+                      <img
+                        src={`data:image/png;base64,${captcha.data.imagemBase64}`}
+                        alt="Código de verificação"
+                        className="captcha-img"
+                      />
+                    ) : (
+                      <div className="captcha-img captcha-img-loading" />
+                    )}
+                    <button
+                      type="button"
+                      className="captcha-refresh"
+                      onClick={recarregarCaptcha}
+                      title="Gerar novo código"
+                      aria-label="Gerar novo código"
+                    >
+                      ↻
+                    </button>
+                  </div>
+                  <div className="field-input-wrap minimal">
+                    <input
+                      id="captchaCodigo"
+                      type="text"
+                      placeholder="Digite o código da imagem"
+                      value={codigoCaptcha}
+                      onChange={(e) => setCodigoCaptcha(e.target.value)}
+                      autoComplete="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {errorMessage && (
               <div className="field-error-box" role="alert">
                 {errorMessage}
               </div>
             )}
 
-            <button type="submit" disabled={login.isPending} className="btn-primary" style={{ marginTop: 6 }}>
+            <button
+              type="submit"
+              disabled={login.isPending || captcha.isLoading}
+              className="btn-primary"
+              style={{ marginTop: 6 }}
+            >
               {login.isPending && <span className="btn-spinner" />}
               {login.isPending ? "Entrando..." : "Entrar"}
             </button>

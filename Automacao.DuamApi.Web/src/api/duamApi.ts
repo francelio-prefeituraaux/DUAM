@@ -4,7 +4,7 @@ import type {
   JobListFilters,
   JobStatusResponse,
 } from "../types/job";
-import type { LoginResponse } from "../types/auth";
+import type { CaptchaChallenge, LoginResponse } from "../types/auth";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 
@@ -23,16 +23,33 @@ async function parseErrorMessage(response: Response): Promise<string> {
   return text || `Erro ${response.status}`;
 }
 
+export async function getLoginCaptcha(): Promise<CaptchaChallenge> {
+  const response = await fetch(`${API_BASE_URL}/duam/login/captcha`);
+
+  if (!response.ok) {
+    throw new ApiError(await parseErrorMessage(response), response.status);
+  }
+
+  return response.json();
+}
+
 export interface PostLoginInput {
   usuario: string;
   senha: string;
+  captchaToken?: string;
+  captchaCodigo?: string;
 }
 
 export async function postLogin(input: PostLoginInput): Promise<LoginResponse> {
   const response = await fetch(`${API_BASE_URL}/duam/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ usuario: input.usuario, senha: input.senha }),
+    body: JSON.stringify({
+      usuario: input.usuario,
+      senha: input.senha,
+      captchaToken: input.captchaToken,
+      captchaCodigo: input.captchaCodigo,
+    }),
   });
 
   if (!response.ok) {

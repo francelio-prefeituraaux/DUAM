@@ -374,6 +374,60 @@
   color: hsl(var(--foreground));
 }
 
+.captcha-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.captcha-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.captcha-img {
+  height: 42px;
+  width: 132px;
+  border-radius: 6px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted-foreground) / 0.08);
+  object-fit: cover;
+}
+
+.captcha-img-loading {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.captcha-refresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid hsl(var(--border));
+  background: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: hsl(var(--muted-foreground));
+}
+
+.captcha-refresh:hover {
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--primary));
+}
+
 .file-drop {
   border: 1.5px dashed hsl(var(--border));
   border-radius: 8px;
